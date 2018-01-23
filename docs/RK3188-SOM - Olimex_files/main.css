@@ -1,0 +1,217 @@
+/*
+ * {
+	box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	
+	margin: 0;
+	padding: 0;
+}
+*/
+
+#body pre {
+	border: solid 1px #E0E0E0;
+	padding: 10px;
+}
+
+.editsection {
+	font-weight: normal;
+	font-size: 12px;
+}
+
+.new {
+	color: #EA337C;
+}
+
+/* =========================== USER =========================== */
+
+#user-toolbar h3 {
+	display: none;
+	visibility: hidden;
+}
+
+#user-toolbar li {
+	background: none;
+	padding: 0;
+	margin-left: 5px;
+	padding-left: 5px;
+	border-left: solid 1px #C0C0C0;
+	display: inline;
+	font-size: 12px;
+}
+
+#user-toolbar li:first-child {
+	border-left: none;
+}
+
+#user-toolbar li.new a {
+	color: #EA337C;
+}
+
+/* =========================== PAGE =========================== */
+
+.dropDown {
+	width: 22px;
+	height: 22px;
+	float: left;
+	margin-right: 5px;
+	border: solid 1px #C0C0C0;
+	background: url(images/arrow-down-icon.png) no-repeat 0 2px;
+}
+
+#page-toolbar {
+	display: none;
+	position: absolute;
+	margin-top: 20px;
+	margin-left: -1px;
+	background: #FFFFFF;
+	padding: 10px;
+	padding-bottom: 0px;
+	border: solid 1px #C0C0C0;
+	z-index: 999;
+}
+
+#page-toolbar li {
+	white-space: nowrap;
+}
+
+#subtitle {
+	margin-bottom: 10px;
+}
+
+textarea {
+	width: 100%;
+}
+
+/* =========================== EDIT =========================== */
+
+#preftoc {
+	margin: 0;
+	border-bottom: solid 1px #C0C0C0;
+}
+
+#preftoc a {
+	border: none;
+}
+
+#preftoc .selected a {
+	color: #EA337C;
+}
+
+#preftoc li {
+	position: relative;
+	top: 1px;
+	display: inline-block;
+	background: none;
+	
+	border: solid 1px #DDDDDD;
+	border-bottom: solid 1px #C0C0C0;
+	
+	padding: 3px;
+	padding-left: 5px;
+	padding-right: 5px;
+	margin-right: 5px;
+}
+
+#preftoc li.selected {
+	border: solid 1px #C0C0C0;
+	border-bottom: solid 1px #FFFFFF;
+}
+
+fieldset {
+	border: solid 1px #C0C0C0;
+	padding: 10px;
+	margin-bottom: 10px;
+}
+
+fieldset.prefsection {
+	border: none;
+}
+
+legend {
+	padding-left: 5px;
+	padding-right: 5px;
+}
+
+fieldset.prefsection > legend {
+	display: none;
+}
+
+fieldset.prefsection fieldset {
+	border: none;
+	border-top: solid 1px #C0C0C0;
+	margin-bottom: 0;
+}
+
+.mw-specialpages-table {
+	margin: 0;
+}
+
+.prefsection td.mw-label{
+	white-space: nowrap;
+	width: 30%;
+}
+
+.htmlform-tip {
+	font-size: 11px;
+	padding-top: 0px;
+	padding-bottom: 15px;
+	color: #B0B0B0;
+}
+
+/* =========================== SEARCH =========================== */
+
+.mw-search-formheader div {
+	float: none;
+	overflow: hidden;
+	margin: 5px;
+}
+
+.mw-search-formheader ul li {
+	background: none;
+	margin-right: 15px !important;
+}
+
+.mw-search-formheader div.search-types ul li a {
+	padding: 0;
+}
+.mw-search-formheader div.search-types ul li.current a {
+	border: none;
+	font-weight: bold;
+}
+
+/* =========================== FOOTER =========================== */
+
+#mw-footer .notes {
+	width: auto;
+	float: left;
+	margin: 5px;
+	margin-top: 15px;
+}
+
+#mw-footer .icons {
+	text-align: center;
+	width: auto;
+	float: right;
+}
+
+#mw-footer .icons div {
+	display: inline-block;
+	width: auto;
+	margin: 5px;
+}
+
+#mw-footer li {
+	display: inline;
+	font-size: 11px;
+	background: none;
+	padding-left: 0;
+	margin-right: 10px;
+}
+
+#mw-footer #info li {
+	display: block;
+}
+
+.mw-normal-catlinks {
+	display: none;
+}

@@ -1,0 +1,120 @@
+* {
+	box-sizing: border-box;
+	-moz-box-sizing: border-box;
+	
+	margin: 0; 
+	padding: 0;
+}
+
+#main { 
+	width: 980px; 
+	margin: 0 auto; 
+	text-align: left;
+}
+
+#header {
+	overflow: auto;
+	padding-bottom: 15px;
+}
+
+#content {
+	margin-left: 15px;
+	margin-right: 15px;
+	overflow: hidden;
+}
+
+#footer {
+	height: 120px;
+}
+
+ul,
+ol {
+	text-align: left
+}
+
+.container {
+	width: 100%; 
+	overflow: hidden;
+}
+
+.snow {
+	background: url(../images/snow.png) no-repeat 190px 0;
+}
+
+.block {
+	width: 100%; 
+	overflow: hidden; 
+}
+
+.col-1,
+.col-2 {
+	float: left;
+	margin-left: 15px;
+	overflow: hidden;
+}
+
+.col-1 {
+	width: 210px;
+}
+
+.col-2 {
+	width: 705px;
+	padding-bottom: 15px;
+}
+
+.no-image {
+	float: left;
+	width: 50%;
+	height:230px; 
+	border: dashed 1px DeepSkyBlue;
+	text-align: center;
+	padding-top: 100px;
+}
+
+#products {
+	float: right;
+	width: 100%;
+	padding-bottom: 5px;
+	margin-bottom: 20px;
+	border-bottom: solid 1px #2BB6D1;
+}
+
+#products h4 {
+	border-bottom: solid 1px #2BB6D1;
+	margin-bottom: 10px;
+	color: #2BB6D1;
+}
+
+.products ul > li {
+	border-bottom: none !important;
+}
+
+/* ============================= pages ===========================*/
+
+.col-2 .col {
+	float: left;
+	
+	margin-bottom: 15px;
+	padding-left: 10px;
+	padding-right: 10px;
+	
+	width: 335px;
+	overflow: hidden;
+}
+
+#page-1 .col-2 .col {
+	width: 350px;
+}
+
+#page-1 .col-2 .col:first-child {
+	border-right: solid 1px #DBDBDB;
+}
+
+#page-2 .col-2 .col {
+}
+
+#page-3 .col-1 {
+	width: 650px;
+	margin-left: 150px;
+	text-align: justify;
+}

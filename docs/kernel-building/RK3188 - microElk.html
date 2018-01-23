@@ -1,0 +1,1690 @@
+<!DOCTYPE html>
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+	<title>RK3188 - microElk</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<link href="RK3188%20-%20microElk-Dateien/bootstrap_002.css" rel="stylesheet">
+	<link rel="stylesheet" href="RK3188%20-%20microElk-Dateien/bootstrap.css">
+	<script src="RK3188%20-%20microElk-Dateien/jquery.js"></script>
+	<script src="RK3188%20-%20microElk-Dateien/bootstrap.js"></script>
+	<meta name="description" content="embedded">
+</head>
+
+
+<body style="font-family:Consolas; background-color:lightgrey; padding-top:100px">
+	<div class="navbar navbar-inverse navbar-fixed-top">
+		<ul class="nav navbar-nav">
+			<li><a href="http://microelk.azurewebsites.net/">H0me</a></li>
+			<li><a href="http://microelk.azurewebsites.net/Contacts">My_c0nt@cts</a></li>            
+		</ul>
+	</div>
+
+	<div class="container body-content" style="font-size:14px">
+		
+
+
+
+
+
+
+	<div style="text-align:right; font-size:small">
+		I tried to build kernel accordingly to olimex's
+		<a href="https://www.olimex.com/wiki/RK3188-SOM" role="button">
+			WiKi
+		</a>.
+		<br>
+		And I discovered that this was impossible.
+		I'm using Ubuntu 15.10 64bit.
+		Maybe you will achieve another result on other platform.
+
+	</div>
+
+	<h1>
+		RK3188-SOM kernel building
+	</h1>
+
+	<h2>
+		Bootable SD card
+	</h2>
+
+	<h3>
+		Radxa image markup
+	</h3>
+
+	I don't know if it is official or not official utility:
+	<b>sdboot_rk3188.img</b>.
+	(Seems not, cause Olimex doesn't provide any reference for its download)
+	But it is not important for me now.<br>
+
+	You could take it
+	<a href="http://files.androtab.info/radxa/sdboot_rk3188_miniroot.zip" role="button">
+		here
+	</a>. <br>
+
+	This utility makes possible to boot RK3188 not from NAND but from SD image created by you.
+	But for its proper work you should create right marked up image.<br>
+
+	For the beginning you should create an empty image (or look below for other approach):
+<pre><code style="color:blue"><b>dd if=/dev/zero of=sd.img bs=1M count=1024</b></code></pre>
+
+	In this command:
+<pre><code style="color:green">/dev/zero	=&gt;	in Linux, this is an infinite source of nulls
+bs		=&gt;	redefine block size, in our case 1024x1024=1MB (512B by default)
+if=		=&gt;	input file
+of=		=&gt;	output file
+count	=&gt;	number of blocks for image</code></pre>
+
+	Not falling down in deep explanation I'm providing for you the markup, 
+that you should create for your bootable image in form of diagram:<br>
+	<div style="width:auto; overflow-x: scroll">
+		<div style="width:1024px">
+			<img src="RK3188%20-%20microElk-Dateien/SD_img_mark_up-Model_radxa.jpg" width="1280">
+			<img>
+			<br>
+		</div>
+	</div>
+
+	Such image markup you will find
+	<a href="http://androtab.info/radxa_rock/sdboot/" role="button">
+		here
+	</a>. <br>
+	You will create such image by these commands:<br>
+
+	<div style="width:640px">
+		<pre><code style="color:blue"><b>dd if=<b style="color:red">sdboot_rk3188.img</b> of=SD.img conv=sync,fsync
+dd if=parameter.img of=SD.img conv=sync,fsync seek=<b style="color:red">$((0x2000))</b>
+dd if=boot.img of=SD.img conv=sync,fsync seek=<b style="color:red">$((0x2000+0x4000))</b>
+dd if=<b style="color:purple">some_rootfs.img</b> of=SD.img conv=sync,fsync seek=<b style="color:red">$((0x2000+0xc000))</b>
+</b></code></pre>
+	</div>
+
+
+	<hr>
+	If you are a newbie in linux I will decode these commands for you: <br>
+	<div style="width:auto; overflow-x: scroll">
+		<div style="width:1024px">
+<pre><code style="color:green">conv=sync	=&gt;	uses synchronized I/O for both data and metadata
+conv=fsync	=&gt;	it synchronizes output data and metadata just before finishing; forces a physical write of output data and metadata
+seek=n		=&gt;	skips 'n' blocks from the beginning of output file before copying
+$((...))	=&gt;	arithmetic expansion, in our case converts НЁХ to DEC</code></pre>
+		</div>
+	</div>
+
+	<hr>
+	You can mention that there is the explicitly marked prefix <b style="color:red"> $((0x2000+... </b> in the last three commands.
+	I will explain why it is needed in section <b>parameter.img</b> (look below). <br>
+
+	After you settle your empty image you should format it.<br>
+	Start this command and look for options:<br>
+
+	<div style="width:480px">
+		<pre><code style="color:blue"><b>fdisk sd.img</b></code></pre>
+	</div>
+
+	<b>fdisk</b> will ask you for additional commands.<br>
+	- Press <b>n</b> =&gt; create <b>n</b>ew partition. <br>
+	- Then select <b>p</b> =&gt; <b>p</b>rimary partition. <br>
+	- Partition number - select <b>1</b> - this should be default selection if everything was done right. <br>
+	- The first sector should be 8182+49152 = <b>57344</b> blocks (look diagram before).<br>
+	- Then press 'ENTER' - the last sector by default (for sd.img default will be 2097151)<br>
+	- Press key <b>w</b> to write changes to the image<br>
+
+	Or you can use such command:
+	<div style="width:480px">
+		<pre><code style="color:blue"><b>fdisk sd.img &lt;&lt; EOF
+n
+p
+1
+57344 
+
+w
+EOF
+</b></code></pre>
+	</div>
+
+	<h3>
+		Olimex's image markup
+	</h3>
+
+	Olimex on its Wiki page provides the next image markup:
+	<br>
+	<div style="width:auto; overflow-x: scroll">
+		<div style="width:1024px">
+			<img src="RK3188%20-%20microElk-Dateien/SD_img_mark_up-Model_olimex.jpg" width="1280">
+			<img>
+			<br>
+		</div>
+	</div>
+
+	There is some trick that I found.
+	<br>
+	As you see in the last part of image I explicitly shown that in role of <b>rootfs</b>
+	there is Linux image provided by Olimex: <b style="color:purple">RK3188_debian_3.0.36_SD_release2.img</b>.
+	You could take it
+	<a href="https://www.olimex.com/wiki/images/5/5f/RK3188_debian_3.0.36_NAND_release1.img.torrent" role="button">here</a>. <br>
+	You shouldn't create <b>rootfs</b> by yourself if you just want to recompile <b>kernel</b>.
+	You can take Olimex's image and settle it by your <b>kernel</b>.<br>
+
+	These commands will do it:
+	<div style="width:auto; overflow-x: scroll">
+		<div style="width:900px">
+<pre><code style="color:blue"><b>dd if=sdboot_rk3188.img <b style="color:green">of=RK3188_debian_3.0.36_SD_release2.img</b> conv=sync,fsync,<b style="color:darkorange">notrunc</b>
+dd if=parameter.img <b style="color:green">of=RK3188_debian_3.0.36_SD_release2.img</b> conv=sync,fsync,<b style="color:darkorange">notrunc</b> seek=<b style="color:red">$((0x2000))</b>
+dd if=boot.img <b style="color:green">of=RK3188_debian_3.0.36_SD_release2.img</b> conv=sync,fsync,<b style="color:darkorange">notrunc</b> seek=<b style="color:red">$((0x2000+0x2000))</b></b></code></pre>
+		</div>
+	</div>
+	<br>
+
+	In these commands:
+	<div style="width:480px">
+<pre><code style="color:green">notrunc		=&gt;	prevents final image from truncation</code></pre>
+	</div>
+
+	Then format image as explained before:
+	<br>
+	<div style="width:480px">
+		<pre><code style="color:blue"><b>fdisk <b style="color:green">RK3188_debian_3.0.36_SD_release2.img</b> &lt;&lt; EOF
+n
+p
+1
+49152
+
+w
+EOF
+</b></code></pre>
+	</div>
+
+	I tested both markups (radxa and olimex) on my SOM and both work well.
+
+
+	<h2>
+		parameter.img
+	</h2>
+
+
+	<b>parameter.img</b> consists of information for <b>sdboot_rk3188.img</b>
+	and information that <b>sdboot_rk3188.img</b> should pass to Linux kernel.
+	As I think the most important part is where every part of images appears.<br>
+	In case of OLIMEX's image markup you can create CMDLINE_file by this command:
+
+	<div style="width:auto; overflow-x: scroll">
+		<div style="width:1920px">
+<pre><code><b style="color:red">cat &gt; CMDLINE_file &lt;&lt;EOF</b>
+<b style="color:blue">FIRMWARE_VER:4.2.2
+MACHINE_MODEL:rk3188-som
+MACHINE_ID:007
+MANUFACTURER:OLIMEX
+MAGIC: 0x5041524B
+ATAG: 0x60000800
+MACHINE: 3066
+CHECK_MASK: 0x80
+KERNEL_IMG: 0x60408000
+#RECOVER_KEY: 1,1,0,20,0
+CMDLINE:<b style="color:green">console=ttyFIQ0,115200</b> <b style="color:orange">root=/dev/mmcblk0p1</b> rw rootfstype=ext4 init=/sbin/init initrd=0x62000000,0x00800000 mtdparts=rk29xxnand:0x00008000@<b style="color:red">0x00002000(boot)</b>,-@<b style="color:red">0x0000A000(linuxroot)</b>
+<b style="color:red">EOF</b></b></code></pre>
+		</div>
+	</div>
+
+	I had extracted this command line from <b style="color:green">of=RK3188_debian_3.0.36_SD_release2.img</b> by this command (appreciate Olimex's concern about customer):
+	<div style="width:auto; overflow-x: scroll">
+		<div style="width:800px">
+<pre><code><b style="color:blue">dd if=<b style="color:green">RK3188_debian_3.0.36_SD_release2.img</b> skip=<b style="color:red">$((0x2000))</b> count=2 of=<b style="color:orange">CMDLINE_file_from_OLIMEX_img</b> </b></code></pre>
+		</div>
+	</div>
+
+	In this command:
+	<div style="width:auto; overflow-x: scroll">
+		<div style="width:1024px">
+<pre><code style="color:green">skip=<b style="color:red">$((0x2000))</b>			=&gt;	skip <b style="color:blue">sdboot_rk3188.img</b> that placed in the first <b style="color:red">0x2000</b> sectors
+count=2					=&gt;	take two sectors (2x512Byte)
+of=CMDLINE_file_from_OLIMEX_img		=&gt;	output file will be <b style="color:orange">CMDline_file_from_OLIMEX_img</b></code></pre>
+		</div>
+	</div>
+
+
+	For Radxa's image markup last line should be:
+	<div style="width:auto; overflow-x: scroll">
+		<div style="width:1920px">
+<pre><code><b style="color:blue"><b style="color:green">console=ttyFIQ0,115200</b> <b style="color:orange">root=/dev/mmcblk0p1</b> rw rootfstype=ext4 init=/sbin/init initrd=0x62000000,0x00800000 mtdparts=rk29xxnand:0x00008000@<b style="color:red">0x00004000(boot)</b>,-@<b style="color:red">0x0000C000(linuxroot)</b> </b>
+</code></pre>
+		</div>
+	</div>
+
+	<h4>
+		SIZE@ADDRESS
+	</h4>
+
+	//Don't try the example provided by Olimex's Wiki - not working//
+	<br>
+	The last two statements of CMDLINE give <b>sdboot_rk3188.img</b> information,
+	where <b>boot.img</b> and <b>some_rootfs.img</b> begin and what size they have in the
+	next format:
+	<div style="width:480px">
+		<pre><code style="color:blueviolet"><b>SIZE@ADDRESS</b></code></pre>
+	</div>
+	You should change these values if you changed your image markup.
+	<br>
+
+	<h4>
+		console=ttyFIQ0, 115200
+	</h4>
+
+	By default <b style="color:blueviolet">UART2</b> is used in the
+	<b style="color:red">	RK3188</b> as <b style="color:green">ttyFIQ0</b>, and:
+	<br>
+	<b style="color:red">115200</b> - UART bitrate.<br>
+	<b style="color:red">FIQ</b> - fast interrupt query. FIQ is the interrupt with priority higher than IRQ.
+	When FIQ occurred, IRQ and other FIQ handlers disable.
+	No other interrupts can occur during the handling of the active FIQ interrupt. <br>
+	<a href="http://microelk.azurewebsites.net/RK3188/RK3188" role="button">I had already written that Olimex's had sold me the defective USB-UART converter, that damaged my DEBUG_UART.</a>
+	So I'm looking for the way how to change UART port number for the console output. <br>
+	In the kernel compiling configuration menu you can find
+	and change the number of UART port that is used for ttyFIQ
+	(look for boot.img-&gt;Kernel section below): <br>
+	<b style="color:blue">	System Type ---&gt; (2)Debug UART =&gt; put number what you want (0, 1 or 3)</b> <br>
+	BUT! )) it doesn't work!!!. You will receive unbootable kernel. <br>
+	For this purpose you should change <b style="color:green">	parameter.img</b>
+	in the part where it passes information to the <b style="color:red">kernel</b>:
+	<div style="width:480px">
+		<pre><code style="color:blue"><b>CMDLINE:console=ttyS3,115200 root=/dev/mmcblk0p1 ...</b></code></pre>
+	</div>
+	In this case <b style="color:green">console=ttyS3</b>
+	will remove booting console to the UART3 (that is represented on UEXT2 SOM's connector). <br>
+
+	More vast explanation you will find in document that you will find in kernel's folder: <br>
+	<b style="color:green">/RK3188-SOM/Documentation/serial-console.txt</b> <br>
+
+	After you have changed console output, you will receive such output through <b style="color:red">UART3</b>:
+	<div style="width:auto; height:auto; overflow-x: scroll">
+		<div style="width:1024px; height:480px">
+<pre><code>[    2.204850] console [ttyS3] enabled, bootconsole disabled
+[    2.218294] rk_serial rk_serial.3: membase 0xdf048000
+[    2.223544] Rockchip ion module(version: 1.0) is successfully loaded
+[    2.231485] loop: module loaded
+[    2.234684] Android kernel panic handler initialized (bind=kpanic)
+[    2.241654] Read the Ethernet MAC address from IDB:6f:93:1c:28:27:45
+[    2.248112] random_ether_addr***********:2:EC:6D:FC:E6:55
+[    2.253776] rk29 vmac rk29 vmac.0: ARC VMAC at 0x10204000 irq 51 02:ec:6d:fc:e6:55
+[    2.262399] PPP generic driver version 2.4.2
+[    2.266807] PPP Deflate Compression module registered
+[    2.271874] PPP BSD Compression module registered
+[    2.294151] PPP MPPE Compression module registered
+[    2.298988] NET: Registered protocol family 24
+[    2.303467] tun: Universal TUN/TAP device driver, 1.6
+[    2.308533] tun: (C) 1999-2004 Max Krasnyansky <maxk@qualcomm.com>
+[    2.314926] usbcore: registered new interface driver asix
+[    2.320387] Rockchip WiFi SYS interface (V1.00) ...
+[    2.325394] Initializing USB Mass Storage driver...
+[    2.330314] usbcore: registered new interface driver usb-storage
+[    2.336342] USB Mass Storage support registered.
+[    2.341046] usbcore: registered new interface driver usbserial
+[    2.346900] USB Serial support registered for generic
+[    2.352016] usbcore: registered new interface driver usbserial_generic
+[    2.358561] usbserial: USB Serial Driver core
+[    2.362937] USB Serial support registered for GSM modem (1-port)
+[    2.368999] usbcore: registered new interface driver option
+[    2.374568] option: v0.7.2:USB Driver for GSM modems
+[    2.601679] usb20_otg usb20_otg: DWC OTG Controller
+[    2.606620] usb20_otg usb20_otg: new USB bus registered, assigned bus number 1
+[    2.613881] usb20_otg usb20_otg: irq 48, io mem 0x00000000
+[    2.619510] usb usb1: New USB device found, idVendor=1d6b, idProduct=0002
+[    2.626296] usb usb1: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+[    2.633550] usb usb1: Product: DWC OTG Controller
+[    2.638253] usb usb1: Manufacturer: Linux 3.0.36+ dwc_otg_hcd
+[    2.644011] usb usb1: SerialNumber: usb20_otg
+[    2.648642] hub 1-0:1.0: USB hub found
+[    2.652425] hub 1-0:1.0: 1 port detected
+[    2.870039] usb20_host usb20_host: DWC OTG Controller
+[    2.875113] usb20_host usb20_host: new USB bus registered, assigned bus number 2
+[    2.882562] usb20_host usb20_host: irq 49, io mem 0x00000000
+[    2.888415] usb usb2: New USB device found, idVendor=1d6b, idProduct=0002
+[    2.895199] usb usb2: New USB device strings: Mfr=3, Product=2, SerialNumber=1
+[    2.902454] usb usb2: Product: DWC OTG Controller
+[    2.907157] usb usb2: Manufacturer: Linux 3.0.36+ host20_hcd
+[    2.912825] usb usb2: SerialNumber: usb20_host
+[    2.917516] hub 2-0:1.0: USB hub found
+[    2.921286] hub 2-0:1.0: 1 port detected
+[    2.925715] rk29-keypad: probe of rk29-keypad failed with error -22
+[    2.932014] AR1020 I2C: ar1020_i2c_init: begin
+[    2.936517] AR1020 I2C: ar1020_i2c_probe: begin
+[    2.941063] AR1020 I2C: Using IRQ 207 set via kernel parameter.
+[    2.947072] input: AR1020 Touchscreen as /devices/virtual/input/input0
+[    2.953791] ===================================================
+[    2.959727] Rockchip IR remote controller driver. Version 1.0.0
+[    2.965642] ===================================================
+[    2.971593] ++++++++remotectl_init
+[    2.988287] using rtc device, rtc_hym8563, for alarms
+[    2.993224] rtc_hym8563 1-0051: rtc core: registered rtc_hym8563 as rtc0
+[    3.000192] i2c /dev entries driver
+[    3.004079] Linux video capture interface: v2.00
+[    3.008897] usbcore: registered new interface driver uvcvideo
+[    3.014642] USB Video Class driver (v1.1.0)
+[    3.019405] device-mapper: uevent: version 1.0.3
+[    3.024207] device-mapper: ioctl: 4.20.0-ioctl (2011-02-02) initialised: dm-devel@redhat.com
+[    3.032850] cpuidle: using governor ladder
+[    3.036985] cpuidle: using governor menu
+[    3.086415] .Line4018..The End of SDMMC-probe Ver.6.07 The last modify date is 2013-12-20.  [sd_mmc]
+[    3.086428]
+[    3.086430] drivers/mmc/core/core.c...2019..  ===== mmc_rescan Begin....[mmc0]
+[    3.091532] rk29_sdmmc_change_clk_div..1684..  newDiv=63, newCLK=297Khz [sd_mmc]
+[    3.111834] .Line4018..The End of SDMMC-probe Ver.6.07 The last modify date is 2013-12-20.  [sdio]
+[    3.122188] usbcore: registered new interface driver usbhid
+[    3.127759] usbhid: USB HID core driver
+[    3.131938] logger: created 256K log 'log_main'
+[    3.136562] logger: created 256K log 'log_events'
+[    3.141341] logger: created 256K log 'log_radio'
+[    3.146007] logger: created 256K log 'log_system'
+[    3.151050] zram: Created 1 device(s) ...
+[    3.175634] ALSA device list:
+[    3.178653]
+[    3.178658] mmc_attach_sd..1230..  ===== Begin to identify card as SD-card. [mmc0]
+[    3.178671]   No soundcards found.
+[    3.178757] GACT probability NOT on
+[    3.178767] Mirror/redirect action on
+[    3.178772] u32 classifier
+[    3.178775]     Actions configured
+[    3.178781] Netfilter messages via NETLINK v0.30.
+[    3.178823] nf_conntrack version 0.5.0 (13603 buckets, 54412 max)
+[    3.179103] ctnetlink v0.93: registering with nfnetlink.
+[    3.179131] NF_TPROXY: Transparent proxy support initialized, version 4.1.0
+[    3.179136] NF_TPROXY: Copyright (c) 2006-2007 BalaBit IT Ltd.
+[    3.179392] xt_time: kernel timezone is -0000
+[    3.179520] ip_tables: (C) 2000-2006 Netfilter Core Team
+[    3.179644] arp_tables: (C) 2002 David S. Miller
+[    3.179683] TCP cubic registered
+[    3.179688] Initializing XFRM netlink socket
+[    3.180034] NET: Registered protocol family 10
+[    3.180691] Mobile IPv6
+[    3.180713] ip6_tables: (C) 2000-2006 Netfilter Core Team
+[    3.180815] IPv6 over IPv4 tunneling driver
+[    3.181358] NET: Registered protocol family 17
+[    3.181388] NET: Registered protocol family 15
+[    3.181564] Bluetooth: RFCOMM TTY layer initialized
+[    3.181576] Bluetooth: RFCOMM socket layer initialized
+[    3.181581] Bluetooth: RFCOMM ver 1.11
+[    3.181587] Bluetooth: BNEP (Ethernet Emulation) ver 1.3
+[    3.181593] Bluetooth: HIDP (Human Interface Emulation) ver 1.2
+[    3.181686] NET: Registered protocol family 35
+[    3.181806] [BT_RFKILL]: Enter rfkill_rk_init
+[    3.181880] [BT_RFKILL]: Request irq for bt wakeup host
+[    3.181905] [BT_RFKILL]: ** disable irq
+[    3.208405] [BT_RFKILL]: bt shut off power
+[    3.238417] [BT_RFKILL]: bt_default device registered.
+[    3.318422] usb 2-1: new high speed USB device number 2 using usb20_host
+[    3.411037] CAT66121: Reg[0-3] = 0x[54].[49].[12].[16]
+[    3.416374] rk29_sdmmc_change_clk_div..1684..  newDiv=0, newCLK=37500Khz [sd_mmc]
+[    3.424649] mmc0: new high speed SDHC card at address aaaa
+[    3.431046] mmcblk0: mmc0:aaaa SL16G 14.8 GiB
+[    3.437871]
+[    3.437875] msdos_partition..466... ==== Begin to parse sdcard-partition.  [mmc0]
+[    3.446914] msdos_partition..535... ==== The sdcard has MBR. [mmc0]
+[    3.453249] msdos_partition..548... ==== partition-1, size=1331200KB  [mmc0]
+[    3.460327] msdos_partition..576... ==== main partition-1....[mmc0]
+[    3.466597]  mmcblk0: p1
+[    3.469609] sdmmc_rescan_try_freq..1913..  ===== Initialize SD-card successfully. [mmc0]
+[    3.477714]
+[    3.477718] drivers/mmc/core/core.c...2019..  ===== mmc_rescan Begin....[mmc1]
+[    3.498450] rk29_sdmmc_change_clk_div..1684..  newDiv=42, newCLK=297Khz [sdio]
+[    3.520378] cat66121_hdmi 2-004c: cat66121 hdmi i2c probe ok
+[    3.526162] VFP support v0.3: implementor 41 architecture 3 part 30 variant 9 rev 4
+[    3.534179] Registering SWP/SWPB emulation handler
+[    3.540266] ddrfreq: verion 3.2 20131126
+[    3.544346] usb 2-1: New USB device found, idVendor=05e3, idProduct=0608
+[    3.548464] ddrfreq: fix cpu pause bug
+[    3.548476] ddrfreq: normal 396MHz video 300MHz video_low 0MHz dualview 0MHz idle 0MHz suspend 198MHz reboot 300MHz
+[    3.565323] usb 2-1: New USB device strings: Mfr=0, Product=1, SerialNumber=0
+[    3.572524] usb 2-1: Product: USB2.0 Hub
+[    3.578101] rtc_hym8563 1-0051: setting system clock to 2011-01-06 01:09:02 UTC (1294276142)
+[    3.583919] hub 2-1:1.0: USB hub found
+[    3.584274] hub 2-1:1.0: 4 ports detected
+[    3.600481] ddrfreq: change freq to 396 MHz when normal
+[    3.607086] asoc: rk-hdmi-i2s-hifi &lt;-&gt;
+rk29_i2s.1 mapping ok
+[    3.613417] Freeing init memory: 184K
+Segmentation fault
+Loading, please wait...
+Begin: Loading essential drivers ... done.
+Begin: Running /scripts/init-premount ... ls: /sys/class/mtd/mtd*[0-9]: No such file or directory
+done.
+Begin: Mounting root file system ... Begin: Running /scripts/local-top ... done.
+Begin: Running /scripts/local-premount ... done.
+Begin: Running /scripts/local-bottom ... done.
+done.
+Begin: Running /scripts/init-bottom ... done.</maxk@qualcomm.com></code></pre>
+		</div>
+	</div>
+
+	I used <b style="color:green">	gtkterm</b> (sudo apt-get gtkterm, sudo gtkterm) with the next configuration: <br>
+	<b style="color:blue">
+		port: /dev/ttyUSB0<br>
+		BaudRate: 115200<br>
+		parity: none<br>
+		bits: 8<br>
+		Stopbits: 1<br>
+		Flow control: none
+	</b><br>
+
+	For information purpose I'm providing to you cumulative information about UART ports:
+	<div style="width:auto; overflow-x: scroll">
+		<div style="width:1280px">
+			<table border="1">
+				<tbody><tr>
+					<td>
+						<b>RK3188-SOM-EVB connector</b>
+					</td>
+					<td>
+						<b>Pin of RK3188-SOM-EVB connector</b>
+					</td>
+					<td>
+						<b>RK3188-SOM connector</b>
+					</td>
+					<td>
+						<b>Pin of RK3188-SOM connector</b>
+					</td>
+					<td>
+						<b>FUNCTION (S)</b>
+					</td>
+					<td>
+						<b>RK3188 pad#</b>
+					</td>
+					<td>
+						<b>RK3188 func1</b>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<b>1</b>
+					</td>
+					<td>
+						<b>2</b>
+					</td>
+					<td>
+						<b>3</b>
+					</td>
+					<td>
+						<b>4</b>
+					</td>
+					<td>
+						<b>5</b>
+					</td>
+					<td>
+						<b>6</b>
+					</td>
+					<td>
+						<b>7</b>
+					</td>
+				</tr>
+				<tr>
+					<th colspan="7" style="text-align:center">
+						<b> UART 0 </b>
+					</th>
+				</tr>
+				<tr>
+					<td>none</td>
+					<td>none</td>
+					<td>RK3188-SOM GPIO_4</td>
+					<td>pin 34</td>
+					<td>UART0</td>
+					<td>pin L23</td>
+					<td>uart0_rts_n</td>
+				</tr>
+				<tr>
+					<td>none</td>
+					<td>none</td>
+					<td>RK3188-SOM GPIO_4</td>
+					<td>pin 36</td>
+					<td>UART0</td>
+					<td>pin L21</td>
+					<td>uart0_cts_n</td>
+				</tr>
+				<tr>
+					<td>K3188-SOM-EVB UEXT1 </td>
+					<td>pin 3/UART0_TX/GPIO1_A1</td>
+					<td>RK3188-SOM GPIO_4</td>
+					<td>pin 38</td>
+					<td>UART0</td>
+					<td>pin L19</td>
+					<td>uart0_sout</td>
+				</tr>
+				<tr>
+					<td>K3188-SOM-EVB UEXT1 </td>
+					<td>pin 4/UART0_RX/GPIO1_A0</td>
+					<td>RK3188-SOM GPIO_4</td>
+					<td>pin 40</td>
+					<td>UART0</td>
+					<td>pin L20</td>
+					<td>uart0_sin</td>
+				</tr>
+				<tr>
+					<th colspan="7" style="text-align:center">
+						<b> UART 3 </b>
+					</th>
+				</tr>
+				<tr>
+					<td>RK3188-SOM-EVB UEXT2 </td>
+					<td>pin 3/UART3_TX/GPIO1_B3</td>
+					<td>RK3188-SOM GPIO_3</td>
+					<td>pin 11</td>
+					<td>UART3</td>
+					<td>pin T22</td>
+					<td>uart3_sout</td>
+				</tr>
+				<tr>
+					<td>RK3188-SOM-EVB UEXT2 </td>
+					<td>pin 4/UART3_RX/GPIO1_B2</td>
+					<td>RK3188-SOM GPIO_3</td>
+					<td>pin 6</td>
+					<td>UART3</td>
+					<td>pin U21</td>
+					<td>uart3_sin</td>
+				</tr>
+				<tr>
+					<td>none</td>
+					<td>none</td>
+					<td>RK3188-SOM GPIO_3</td>
+					<td>pin 13</td>
+					<td>UART3</td>
+					<td>pin T23</td>
+					<td>uart3_cts_n</td>
+				</tr>
+				<tr>
+					<td>none</td>
+					<td>none</td>
+					<td>RK3188-SOM GPIO_3</td>
+					<td>pin 15</td>
+					<td>UART3</td>
+					<td>pin P21</td>
+					<td>uart3_rts_n</td>
+				</tr>
+				<tr>
+					<th colspan="7" style="text-align:center">
+						<b> UART 1 </b>
+					</th>
+				</tr>
+				<tr>
+					<td>none</td>
+					<td>none</td>
+					<td>RK3188-SOM GPIO_4</td>
+					<td>pin 26</td>
+					<td>UART1/GPIO1_A7</td>
+					<td>pin AB21</td>
+					<td>uart1_rts_n</td>
+				</tr>
+				<tr>
+					<td>none</td>
+					<td>none</td>
+					<td>RK3188-SOM GPIO_4</td>
+					<td>pin 28</td>
+					<td>UART1/GPIO1_A6</td>
+					<td>pin AA13</td>
+					<td>uart1_cts_n</td>
+				</tr>
+				<tr>
+					<td>none</td>
+					<td>none</td>
+					<td>RK3188-SOM GPIO_4</td>
+					<td>pin 30</td>
+					<td>UART1/GPIO1_A5</td>
+					<td>pin Y16</td>
+					<td>uart1_sout</td>
+				</tr>
+				<tr>
+					<td>none</td>
+					<td>none</td>
+					<td>RK3188-SOM GPIO_4</td>
+					<td>pin 32</td>
+					<td>UART1/GPIO1_A4</td>
+					<td>pin AA12</td>
+					<td>uart1_sin</td>
+				</tr>
+			</tbody></table>
+		</div>
+	</div>
+
+	Cause of GPIO_4 and GPIO_3 of RK3188-SOM are traced together on the single connector EXT1 of RK3188-SOM-EVB,
+	we have no pins that present UART 1 of RK3188.
+	<br>
+
+	<h4>
+		mmcblk0p1
+	</h4>
+
+	The	<b>MMC</b> sub-system in the Linux kernel registers device nodes in the format
+	<b style="color:red">mmcblkXpY</b>. Each <b>MMC</b> device, that is registered within the Linux kernel,
+	receives its own device number <b>X</b>. Each partition on a particular device receives its own number
+	<b>Y</b>.
+	In our case SD card will be device number 0 and by the command
+	<b style="color:blue">fdisk</b> we created partition #1.
+
+	<h4>
+		SD 0x2000 blocks shift
+	</h4>
+
+	As I promised above I'll explain what means shift of
+	<b style="color:red">	0x2000</b> blocks when you are creating an image.<br>
+	As you could see for Olimex's image markup
+	<b style="color:blue">	size@address</b> of
+	<b>kernel</b> in <b>CMDLINE</b> is <b style="color:red">0x00008000@0x00002000(boot) </b>
+	and when you write <b>kernel</b> into image you use
+	<b style="color:red">seek=$((0x2000+0x2000))</b>. 	<br>
+	As I could understand it, after RK3188 had read
+	<b style="color:green">sdboot_rk3188</b>, 	that placed in the first
+	<b style="color:red">	0x2000</b> blocks, it begins to read addresses without count of blocks, where
+	<b style="color:green">sdboot_rk3188</b> places.
+	So for RK3188 the first <b style="color:red">	0x2000</b> blocks of bootable SD card don't exist.<br>
+
+	<h4>
+		creating parameter.img
+	</h4>
+	After you have created
+	<b style="color:red">CMDLINE_file</b> you should convert it into the
+	<b>RK3188</b> readable format.
+	<br>
+	Download
+	<b>RK_UTILS</b> and compile it by
+	<b>GCC</b> compiler:
+	<div style="width:640px">
+<pre><code style="color:blue"><b>git clone https://github.com/naobsd/rkutils
+cd rkutils
+gcc rkcrc.c -o rkcrc
+</b></code></pre>
+	</div>
+	<b>gcc -o</b> option of GCC compiler sets output file name.
+	<br>
+	<b>git clone</b> - clones a repository into a new directory.
+	<br>
+
+
+	After that return to the root directory and create
+	<b>parameter.img</b>:
+	<div style="width:640px">
+<pre><code style="color:blue"><b>cd ../
+rkutils/rkcrc -p <b style="color:red">CMDLINE_file</b> parameter.img
+</b></code></pre>
+	</div>
+	<b>-p</b> option creates parameter.img.
+	Look
+	<a href="http://linux-rockchip.info/mw/index.php?title=Rkutils" role="button">here</a> for details.
+	<br>
+
+	<h4>
+		One else trick
+	</h4>
+	If you want just to play with parameter file or test it viability, you 
+can take precompiled, assured to work, kernels from Olimex.
+	You can find it in <b style="color:green">RK3188_debian_3.0.36_SD_release2.img</b> by way: <br>
+	<b style="color:green">/etc/olimex/kernel/</b> <br>
+	After that you can settle this kernel alongside with your <b style="color:red">parameter.img</b>
+	into <b style="color:red">RK3188_debian_3.0.36_SD_release2.img</b> by these commands:
+	<div style="width:1024px">
+<pre><code style="color:blue">dd if=sdboot_rk3188.img of=RK3188_debian_3.0.36_SD_release2.img conv=sync,fsync,notrunc
+dd if=parameter.img of=RK3188_debian_3.0.36_SD_release2.img conv=sync,fsync,notrunc seek=$((0x2000))
+dd if=<b style="color:red">kernel_hdmi_480p.img</b> of=RK3188_debian_3.0.36_SD_release2.img conv=sync,fsync,notrunc seek=$((0x2000+0x2000))
+<b style="color:green">fdisk RK3188_debian_3.0.36_SD_release2.img &lt;&lt; EOF
+n
+p
+1
+49152<br>
+w
+EOF</b></code></pre>
+	</div>
+	//Look above for explanation
+
+	<h2>
+		boot.img
+	</h2>
+	Boot.img is a container for your kernel and initial ram disk.
+	<br>
+
+	<h3>
+		Kernel
+	</h3>
+	Before we start to compile kernel we should prepare tools.
+	<br>
+	//Don't try tools offered by Olimex's WiKi - this is the way of errors and troubles//
+	<br>
+
+	<div style="width:auto; overflow-x: scroll">
+		<div style="width:800px">
+<pre><code style="color:blue"><b>apt-get update
+apt-get install gcc-4.7-arm-linux-gnueabihf lib32ncurses5-dev u-boot-tools libssl-dev build-essential git
+</b></code></pre>
+		</div>
+	</div>
+	<hr>
+	GCC-4.7 wouldn't compile properly kernel.
+	You will receive the error like this:
+	<br>
+
+	<div style="width:480px">
+<pre><code style="color:red"><b>... redefinition of 'return address' void ...</b></code></pre>
+	</div>
+	To resolve this error, you should find and download Linaro's version of
+	<b style="color:green">GCC x86/x64-&gt;arm linux cross-compiler</b>.
+	<br>
+	I used and still use this one:
+	<br>
+	<b style="color:green">gcc-linaro-4.9-2014.11-x86_64 arm-linux-gnueabihf</b>
+	<br>
+	//I tried 5.1 version but it doesn't work.
+	You could take it <a href="https://releases.linaro.org/14.11/components/toolchain/binaries/arm-linux-gnueabihf/" role="button">
+		here
+	</a>.<br>
+
+
+	After you downloaded the <b style="color:green">gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf.tar.xz </b>
+	you should unpack it and receive folder containing Linaro's cross-compiler.
+	<br>
+
+	Copy cross-compiler's folders to the <b style="color:blue">/usr/local</b>
+	by this command:
+	<div style="width:640px">
+<pre><code style="color:blue"><b>sudo cp -a gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf/. usr/local</b></code></pre>
+	</div>
+	<b>-a</b> - preserves structure and attributes of files.
+	<br>
+
+	Then add system pass in the terminal:
+	<div style="width:640px">
+<pre><code style="color:blue"><b>export PATH="/usr/local/gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf/bin/:$PATH"</b></code></pre>
+	</div>
+	This will set <b style="color:red">PATH</b> variable just for current terminal session, so check everything for viability. <br>
+	If everything is fine and you want permanently change <b style="color:red">PATH</b> variable
+	you should find file <b style="color:green">/etc/environment</b> and add path: <br>
+	<b style="color:green">/usr/local/gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf/bin/</b> <br>
+
+	Pattern of your actions:
+	<div style="width:640px">
+<pre><code style="color:blue">Ctrl+Alt+T (open terminal)
+your_computer_name:~$sudo su
+your_computer_name:/home/your_name# cd ../
+your_computer_name:/home# cd ../
+your_computer_name:/#find -name 'environment'
+./etc/environment
+your_computer_name:/#cd etc
+your_computer_name:/etc# nano environment
+</code></pre>
+	</div>
+
+	<b style="color:red">Attention!</b><br>
+	In UNIX-like systems, by default, for the separation is used sign <b style="color:red">:</b>.
+	You should add path <b style="color:green">/usr/local/gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf/bin/</b>
+	after <b style="color:red">PATH="</b> and before the closest <b style="color:red">:</b>. WITHOUT any spaces!
+	<hr>
+
+
+	Only after that we can continue to build our
+	<b>kernel</b>.
+	<br>
+	Download
+	<b>kernel</b>'s source:
+	<div style="width:640px">
+<pre><code style="color:blue"><b>git clone -b olimex/stable-3.0 https://github.com/SelfDestroyer/RK3188-SOM.git </b></code></pre>
+	</div>
+	<b>git clone -b</b> - makes full copy (bare) of the data
+	<br>
+	<b>olimex/stable-3.0</b> - branch in git repository
+	<br>
+
+	Go inside
+	<b>kernel</b>'s folder and make default configuration (defconfig):
+	<div style="width:640px">
+<pre><code style="color:blue"><b>cd RK3188-SOM/
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- olimex_rk3188_defconfig</b></code></pre>
+	</div>
+	<b>olimex_rk3188_defconfig</b> - makes default configuration compliant to SOM.
+	<br>
+
+	Now you can load terminal menu for
+	<b>kernel</b> configuration:
+	<div style="width:640px">
+<pre><code style="color:blue"><b>make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig</b></code></pre>
+	</div>
+	After you have finished tinkering you can build your first Frankenstein:
+	<div style="width:640px">
+<pre><code style="color:blue"><b>make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j4 kernel.img</b></code></pre>
+	</div>
+	<b>-jX</b> option specifies the number of jobs to run simultaneously.
+	<br>
+	<b>ARCH=arm</b> - local variable, specifies that we intend to build for the ARM architecture, cross-compile on a non-ARM system.
+	<br>
+	<b>CROSS_COMPILE</b> - local variable, defines compiler, in our case it is
+	<b style="color:green">arm-linux-gnueabihf</b>.
+	<h3>
+		initrd.img
+	</h3>
+	As it's said in normal
+	<a href="http://androtab.info/radxa_rock/sdboot/" role="button">
+		WiKi
+	</a>:
+	<br>
+	<b>initrd</b> (initial ramdisk) is a scheme for loading a temporary 
+root file system into memory, which may be used as part of the Linux 
+startup process.
+	<br>
+	An image of this initial root file system (along with the kernel image)
+ must be stored somewhere accessible by the Linux bootloader (in our 
+case
+	<b>sdboot_rk3188</b>).
+	To generate initial ramdisk you should execute the next commands (get and compile):
+	<br>
+
+	<div style="width:480px">
+<pre><code style="color:blue"><b>cd ../
+git clone https://github.com/radxa/initrd.git
+cd initrd/
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j4
+cd ../</b></code></pre>
+	</div>
+	After that you will find file
+	<b>initrd.img</b> in your root folder.
+	<br>
+	<h3>
+		Make boot image
+	</h3>
+	Get and compile tool:
+	<div style="width:640px">
+<pre><code style="color:blue"><b>git clone https://github.com/neo-technologies/rockchip-mkbootimg.git
+cd rockchip-mkbootimg
+sudo make
+sudo make install
+cd ../</b></code></pre>
+	</div>
+	<b>mkbootimg</b> is an utility that takes kernel binary file and initial ram disk and creates bootable image (look explanation before).
+	<br>
+	FINALLY create boot.img:
+	<br>
+
+	<div style="width:640px">
+<pre><code style="color:red"><b>mkbootimg --kernel RK3188-SOM/arch/arm/boot/Image --ramdisk initrd.img -o boot.img</b></code></pre>
+	</div>
+	File
+	<b>Image</b> is a binary file that was created by linux-arm-gnueabihf cross-compiler
+	and placed in
+	<b>RK3188-SOM/arch/arm/boot/Image</b>.
+	<br>
+	<b>-o</b> - output filename. Look for all
+	<b>mkbootimg</b> options
+	<a href="https://github.com/neo-technologies/rockchip-mkbootimg/blob/master/README.md" role="button">
+		here
+	</a>.
+	<h2>
+		Script
+	</h2>
+	I created the script that will automatically build kernel for you. <br>
+	There are several options for kernel: you can take one of pre-built by Olimex or make it by yourself. <br>
+	Also I added one option important for me - it is possible to move terminal output to other UART number while preparing image. <br>
+	The result of the script's work will be an image that you could write to the flash by yourself, or let script make it for you. <br>
+	So there it is:<br>
+
+
+
+
+	<div style="overflow-x: scroll">
+		<div style="width:1280px; height:640px">
+<pre><code style="color:blue">
+#!/bin/bash
+#created by Constantine Laskov
+#06/3/2016
+
+#COMMON
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+#PREPARATION
+printf "${BLUE} \n Switching to 'Home' directory \n ${NC}"
+cd ~
+printf "${GREEN} \n Looking for 'OLIMEX_KERNEL' folder in 'Home' \n ${NC}"
+olimexDir=$(find -name 'OLIMEX_KERNEL')
+if [ "$olimexDir" = "./OLIMEX_KERNEL" ]
+then
+printf "${GREEN} \n Folder 'OLIMEX_KERNEL' is found: \n ${NC}"
+echo $olimexDir
+else
+printf "${RED} \n Folder 'OLIMEX_KERNEL' in 'Home' doesn't found \n ${NC}"
+printf "${GREEN} \n I will create such folder \n ${NC}"
+mkdir ~/OLIMEX_KERNEL
+fi
+
+#TOOLS
+printf "${RED} \n Should I download tools? [Y/Enter=skip] \n ${NC}"
+read answer
+case $answer in
+Y* | y* )
+sudo apt-get update
+sudo apt-get upgrade
+sudo apt-get install p7zip-full
+sudo apt-get install unzip &lt;&lt; EOF
+Y
+EOF
+
+sudo apt-get install gtkterm &lt;&lt; EOF
+Y
+EOF
+
+sudo apt-get install gcc-4.7-arm-linux-gnueabihf lib32ncurses5-dev u-boot-tools libssl-dev build-essential git &lt;&lt; EOF
+Y
+EOF
+
+mkdir ~/OLIMEX_KERNEL
+cd ~/OLIMEX_KERNEL
+wget https://releases.linaro.org/14.11/components/toolchain/binaries/arm-linux-gnueabihf/gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf.tar.xz
+sudo tar -xvf gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf.tar.xz -C /usr/local
+;;
+* )
+printf "${GREEN} \n OK. Will think you already have everything you need. \n ${NC}"
+;;
+esac
+#clear variable for further use
+unset answer
+
+
+############################################################################
+#sdboot_rk3188
+############################################################################
+printf "${GREEN} \n Looking for 'sdboot_rk3188' in 'OLIMEX_KERNEL' folder \n ${NC}"
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+if [ "$(find -name 'sdboot_rk3188_miniroot.zip')" = "" ]
+then
+printf "${RED} \n There is no 'sdboot_rk3188_miniroot.zip' in 'OLIMEX_KERNEL' folder \n ${NC}"
+printf "${BLUE} \n Switching to 'Home' directory \n ${NC}"
+cd ~
+printf "${GREEN} \n Clearing variables \n ${NC}"
+set ""
+set $(find -name 'sdboot_rk3188_miniroot.zip')
+if [ "$1" = "" ]
+then
+printf "${RED} \n 'sdboot_rk3188' doesn't found on PC \n ${NC}"
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Downloading 'sdboot_rk3188' \n ${NC}"
+wget http://files.androtab.info/radxa/sdboot_rk3188_miniroot.zip
+else
+printf "${GREEN} \n 'sdboot_rk3188' is found \n"
+printf "${BLUE} \n Setting new line as input field separator \n ${NC}"
+IFS=$'\n'
+printf "${GREEN} \n You have the next origins: \n ${NC}"
+printf "${RED} \n $* \n ${NC}"
+printf "${GREEN} \n What origin I should take: [1/2/3/0-to Download/Enter - close script] \n ${NC}"
+#clear variable before use
+unset answer
+read answer
+
+case $answer in
+1 )
+printf "${GREEN} \n Copying $1 to 'OLIMEX_KERNEL'\n ${NC}"
+cp -r $1 ~/OLIMEX_KERNEL
+;;
+2 )
+printf "${GREEN} \n Copying $2 to 'OLIMEX_KERNEL'\n ${NC}"
+cp -r $2 ~/OLIMEX_KERNEL
+;;
+3 )
+printf "${GREEN} \n Copying $3 to 'OLIMEX_KERNEL'\n ${NC}"
+cp -r $3 ~/OLIMEX_KERNEL
+;;
+0 )
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Downloading 'sdboot_rk3188'\n ${NC}"
+sudo wget http://files.androtab.info/radxa/sdboot_rk3188_miniroot.zip
+;;
+* )
+printf "${RED} \n Closing script \n ${NC}"
+exit 0
+;;
+esac
+#clear variable for further use
+unset answer
+fi
+else
+printf "${GREEN} \n 'sdboot_rk3188' is already in 'OLIMEX_KERNEL' directory \n ${NC}"
+fi
+
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Unzipping 'sdboot_rk3188_miniroot.zip' \n ${NC}"
+unzip sdboot_rk3188_miniroot.zip &lt;&lt; EOF
+N
+EOF
+echo "Removing useless files"
+rm -f parameter.img
+rm -f boot.img
+rm -f parameter_fbcon.img
+
+############################################################################
+#'kernel' origin
+############################################################################
+printf "${GREEN} \n Looking for 'RK3188-SOM' directory in 'OLIMEX_KERNEL' folder \n ${NC}"
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+if [ "$(find -name 'RK3188-SOM')" = "" ]
+then
+printf "${RED} \n Should I download kernel for you or I should find it? [D=download/F=find/Enter=escape script] \n ${NC}"
+unset answer
+read answer
+
+case $answer in
+D* | d* )
+git clone -b olimex/stable-3.0 https://github.com/SelfDestroyer/RK3188-SOM.git
+;;
+F* | f* )
+printf "${GREEN} \n Looking for 'RK3188-SOM' folder on PC \n ${NC}"
+printf "${BLUE} \n Switching to 'Home' directory \n ${NC}"
+cd ~
+printf "${GREEN} \n Clearing variables \n ${NC}"
+set ""
+set $(find -name 'RK3188-SOM')
+if [ "$1" = "" ]
+then
+printf "${RED} \n You have no RK3188-SOM folder on this PC \n ${NC}"
+printf "${RED} \n You should run this script again and choose DOWNLOAD \n ${NC}"
+exit 0
+else
+printf "${GREEN} \n 'RK3188-SOM' is found \n ${NC}"
+printf "${BLUE} \n Setting a new line as input field separator \n ${NC}"
+IFS=$'\n'
+#show all variables
+printf "${GREEN} \n You have the next origins: \n ${NC}"
+printf "${RED} \n $* \n ${NC}"
+echo "what origin I should take: [1/2/3/0-to Download/Enter - close script]"
+unset answer
+read answer
+
+case $answer in
+1 )
+printf "${GREEN} \n Copying origin '1' to 'OLIMEX_KERNEL' \n ${NC}"
+cp -r $1 ~/OLIMEX_KERNEL
+;;
+2 )
+printf "${GREEN} \n Copying origin '2' to 'OLIMEX_KERNEL' \n ${NC}"
+cp -r $2 ~/OLIMEX_KERNEL
+;;
+3 )
+printf "${GREEN} \n Copying origin '3' to 'OLIMEX_KERNEL' \n ${NC}"
+cp -r $3 ~/OLIMEX_KERNEL
+;;
+0 )
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Downloading 'RK3188-SOM' \n ${NC}"
+git clone -b olimex/stable-3.0 https://github.com/SelfDestroyer/RK3188-SOM.git
+;;
+* )
+printf "${RED} \n Closing script \n ${NC}"
+exit 0
+;;
+esac
+#clear variable for further use
+unset answer
+fi
+;;
+* )
+printf "${RED} \n Closing script \n ${NC}"
+exit 0
+;;
+esac
+else
+printf "${GREEN} \n 'RK3188-SOM' directory is already in 'OLIMEX_KERNEL' folder \n ${NC}"
+fi
+
+############################################################################
+#rootfs
+############################################################################
+printf "${GREEN} \n Looking for 'RK3188_debian_3.0.36_SD_release2.img.7z' in 'OLIMEX_KERNEL' folder \n ${NC}"
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+if [ "$(find -name 'RK3188_debian_3.0.36_SD_release2.img.7z')" = "" ]
+then
+printf "${GREEN} \n There is no 'RK3188_debian_3.0.36_SD_release2.img.7z' in 'OLIMEX_KERNEL' folder \n ${NC}"
+printf "${BLUE} \n Switching to 'Home' directory \n ${NC}"
+cd ~
+printf "${BLUE} \n Clearing variables \n ${NC}"
+set ""
+set $(find -name 'RK3188_debian_3.0.36_SD_release2.img.7z')
+if [ "$1" = "" ]
+then
+printf "${RED} \n You should run my another shell script: \n ${NC}"
+printf "${RED} \n Transmission_RK_download_ME \n ${NC}"
+exit 0
+else
+printf "${GREEN} \n Copying 'RK3188_debian' into 'OLIMEX_KERNEL' directory \n ${NC}"
+cp -r $1 ~/OLIMEX_KERNEL
+fi
+else
+printf "${GREEN} \n 'RK3188_debian_3.0.36_SD_release2.img.7z' is already in 'OLIMEX_KERNEL' folder \n ${NC}"
+fi
+
+
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+unset sd_img
+sd_img=$(find -name 'RK3188_debian_3.0.36_SD_release2.img')
+if [ "$sd_img" = "" ]
+then
+printf "${GREEN} \n Unzipping 'RK3188_debian_3.0.36_SD_release2.img.7z' \n ${NC}"
+7z x RK3188_debian_3.0.36_SD_release2.img.7z
+else
+printf "${RED} \n 'RK3188_debian_3.0.36_SD_release2.img.7z' is already unzipped \n ${NC}"
+fi
+
+printf "${RED} \n Changing serial console in 'rootfs' \n ${NC}"
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Mounting 'RK3188_debian_3.0.36_SD_release2.img' \n ${NC}"
+fdisk -u -l RK3188_debian_3.0.36_SD_release2.img
+printf "${RED} \n Un-mounting image from \mnt \n ${NC}"
+sudo umount /mnt
+sudo mount -o loop,offset=$((49152*512)) RK3188_debian_3.0.36_SD_release2.img /mnt
+printf "${RED} \n Where you want to move serial console in 'rootfs' [S0/S1/S2/S3/Enter=default] \n ${NC}"
+unset answer
+read answer
+
+case $answer in
+s0 | S0 | 0 )
+sudo sed -i "/T0:2345:respawn:*/c\T0:2345:respawn:/sbin/getty -L ttyS0 -a root 115200 vt100" /mnt/etc/inittab
+printf "${GREEN} \n Your console on UART 0. It presents on SOM's UEXT_1. ${NC}"
+printf "${GREEN} \n pin2 = GND ${NC}"
+printf "${GREEN} \n pin3 = TX ${NC}"
+printf "${GREEN} \n pin4 = RX ${NC}"
+;;
+s1 | S1 | 1 )
+sudo sed -i "/T0:2345:respawn:*/c\T0:2345:respawn:/sbin/getty -L ttyS1 -a root 115200 vt100" /mnt/etc/inittab
+;;
+s2 | S2 | 2 )
+sudo sed -i "/T0:2345:respawn:*/c\T0:2345:respawn:/sbin/getty -L ttyS2 -a root 115200 vt100" /mnt/etc/inittab
+;;
+s3 | S3 | 3 )
+sudo sed -i "/T0:2345:respawn:*/c\T0:2345:respawn:/sbin/getty -L ttyS3 -a root 115200 vt100" /mnt/etc/inittab
+printf "${GREEN} \n Your console on UART 3. It presents on SOM's UEXT_2. \n ${NC}"
+printf "${GREEN} \n pin2 = GND ${NC}"
+printf "${GREEN} \n pin3 = TX ${NC}"
+printf "${GREEN} \n pin4 = RX ${NC}"
+;;
+* )
+echo "Default output at ttyFIQ0"
+;;
+esac
+cp /mnt/etc/inittab ~/OLIMEX_KERNEL
+printf "${RED} \n Un-mounting image from \mnt \n ${NC}"
+sudo umount /mnt
+
+
+############################################################################
+#parameter.img
+############################################################################
+printf "${RED} \n Creating 'parameter.img' \n ${NC}"
+printf "${GREEN} \n Preparing tools \n ${NC}"
+printf "${GREEN} \n Looking for 'rkutils' in OLIMEX_KERNEL' directory \n ${NC}"
+rkutils=$(find -name 'rkutils')
+if [ "$rkutils" = "" ]
+then
+printf "${RED} \n There is no 'rkutils' in OLIMEX_KERNEL' directory \n ${NC}"
+printf "${GREEN} \n Downloading 'rkutils' \n ${NC}"
+git clone https://github.com/naobsd/rkutils
+printf "${BLUE} \n Switching to 'rkutils' directory \n ${NC}"
+cd rkutils
+printf "${GREEN} \n Compiling 'rkutils' \n ${NC}"
+gcc rkcrc.c -o rkcrc
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+else
+printf "${RED} \n 'rkutils' in 'OLIMEX_KERNEL' is found \n ${NC}"
+fi
+
+printf "${RED} \n Removing old 'CMDLINE_file' \n ${NC}"
+rm -f CMDLINE_file
+printf "${GREEN} Creating new 'CMDLINE_file' \n ${NC}"
+cat &gt; CMDLINE_file &lt;&lt; EOF
+FIRMWARE_VER:4.2.2
+MACHINE_MODEL:rk3188-som
+MACHINE_ID:007
+MANUFACTURER:OLIMEX
+MAGIC: 0x5041524B
+ATAG: 0x60000800
+MACHINE: 3066
+CHECK_MASK: 0x80
+KERNEL_IMG: 0x60408000
+#RECOVER_KEY: 1,1,0,20,0
+EOF
+
+case $answer in
+S0 | s0 | 0 )
+cat &gt;&gt; CMDLINE_file &lt;&lt; EOF
+<b style="color:green">CMDLINE:console=ttyFIQ0,115200 console=ttyS0,115200 root=/dev/mmcblk0p1 rw rootfstype=ext4 init=/sbin/init initrd=0x62000000,0x00800000 mtdparts=rk29xxnand:0x00008000@0x00002000(boot),-@0x0000A000(linuxroot)</b>
+EOF
+printf "${GREEN} \n Your console on UART 0. It presents on SOM's UEXT_1. ${NC}"
+printf "${GREEN} \n pin2 = GND ${NC}"
+printf "${GREEN} \n pin3 = TX ${NC}"
+printf "${GREEN} \n pin4 = RX ${NC}"
+;;
+S1 | s1 | 1 )
+cat &gt;&gt; CMDLINE_file &lt;&lt; EOF
+<b style="color:green">CMDLINE:console=ttyFIQ0,115200 console=ttyS1,115200 root=/dev/mmcblk0p1 rw rootfstype=ext4 init=/sbin/init initrd=0x62000000,0x00800000 mtdparts=rk29xxnand:0x00008000@0x00002000(boot),-@0x0000A000(linuxroot)</b>
+EOF
+;;
+S2 | s2 | 2 )
+cat &gt;&gt; CMDLINE_file &lt;&lt; EOF
+<b style="color:green">CMDLINE:console=ttyFIQ0,115200 console=ttyS2,115200 root=/dev/mmcblk0p1 rw rootfstype=ext4 init=/sbin/init initrd=0x62000000,0x00800000 mtdparts=rk29xxnand:0x00008000@0x00002000(boot),-@0x0000A000(linuxroot)</b>
+EOF
+;;
+S3 | s3 | 3 )
+cat &gt;&gt; CMDLINE_file &lt;&lt; EOF
+<b style="color:green">CMDLINE:console=ttyFIQ0,115200 console=ttyS3,115200 root=/dev/mmcblk0p1 rw rootfstype=ext4 init=/sbin/init initrd=0x62000000,0x00800000 mtdparts=rk29xxnand:0x00008000@0x00002000(boot),-@0x0000A000(linuxroot)</b>
+EOF
+printf "${GREEN} \n Your console on UART 3. It presents on SOM's UEXT_2. \n ${NC}"
+printf "${GREEN} \n pin2 = GND ${NC}"
+printf "${GREEN} \n pin3 = TX ${NC}"
+printf "${GREEN} \n pin4 = RX ${NC}"
+;;
+* )
+cat &gt;&gt; CMDLINE_file &lt;&lt; EOF
+<b style="color:green">CMDLINE:console=ttyFIQ0,115200  root=/dev/mmcblk0p1 rw rootfstype=ext4 init=/sbin/init initrd=0x62000000,0x00800000 mtdparts=rk29xxnand:0x00008000@0x00002000(boot),-@0x0000A000(linuxroot)</b>
+EOF
+;;
+esac
+printf "${RED} \n Converting 'CMDLINE_file' into 'parameter.img' \n ${NC}"
+rkutils/rkcrc -p CMDLINE_file parameter.img
+############################################################################
+#TOOLS FOR KERNEL
+############################################################################
+#rockchip-mkbootimg
+############################################################################
+printf "${GREEN} \n Preparing tools for 'kernel' creation  \n ${NC}"
+printf "${GREEN} \n Looking for 'rockchip-mkbootimg' directory in 'OLIMEX_KERNEL' folder \n ${NC}"
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+if [ "$(find -name 'rockchip-mkbootimg')" = "" ]
+then
+printf "${GREEN} \n There is no 'rockchip-mkbootimg' in 'OLIMEX_KERNEL' folder \n ${NC}"
+printf "${GREEN} \n Looking for 'rockchip-mkbootimg' directory on 'PC' folder \n ${NC}"
+printf "${BLUE} \n Switching to 'Home' directory \n ${NC}"
+cd ~
+printf "${BLUE} \n Clearing variables \n ${NC}"
+set ""
+set $(find -name 'rockchip-mkbootimg')
+if [ "$1" = "" ]
+then
+printf "${RED} \n There is no 'rockchip-mkbootimg' on this PC \n ${NC}"
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Downloading 'rockchip-mkbootimg' \n ${NC}"
+git clone https://github.com/neo-technologies/rockchip-mkbootimg.git
+printf "${BLUE} \n Switching to 'rockchip-mkbootimg' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL/rockchip-mkbootimg
+printf "${RED} \n Compiling 'rockchip-mkbootimg' \n ${NC}"
+sudo make
+sudo make install
+else
+printf "${GREEN} \n 'rockchip-mkbootimg' is found \n ${NC}"
+printf "${BLUE} \n Setting new line as input field separator \n ${NC}"
+IFS=$'\n'
+#show all variables
+printf "${GREEN} \n You have the next origins: \n ${NC}"
+printf "${RED} \n $* \n ${NC}"
+echo "what origin I should take: [1/2/3/0-to Download/Enter - close script]"
+unset answer
+read answer
+case $answer in
+1 )
+printf "${GREEN} \n Copying 'rockchip-mkbootimg' into 'OLIMEX_KERNEL' directory \n ${NC}"
+cp -r $1 ~/OLIMEX_KERNEL
+;;
+2 )
+printf "${GREEN} \n Copying 'rockchip-mkbootimg' into 'OLIMEX_KERNEL' directory \n ${NC}"
+cp -r $2 ~/OLIMEX_KERNEL
+;;
+3 )
+printf "${GREEN} \n Copying 'rockchip-mkbootimg' into 'OLIMEX_KERNEL' directory \n ${NC}"
+cp -r $3 ~/OLIMEX_KERNEL
+;;
+0 )
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Downloading 'rockchip-mkbootimg' \n ${NC}"
+git clone https://github.com/neo-technologies/rockchip-mkbootimg.git
+;;
+* )
+printf "${RED} \n Closing script \n ${NC}"
+exit 0
+;;
+esac
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL/rockchip-mkbootimg' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL/rockchip-mkbootimg
+printf "${RED} \n Compiling 'rockchip-mkbootimg' \n ${NC}"
+sudo make
+sudo make install
+fi
+else
+printf "${GREEN} \n 'rockchip-mkbootimg' is already in 'OLIMEX_KERNEL' folder \n ${NC}"
+fi
+############################################################################
+#initrd.img
+############################################################################
+printf "${GREEN} \n Looking for 'initrd' directory in 'OLIMEX_KERNEL' folder \n ${NC}"
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+if [ "$(find -name 'initrd')" = "" ]
+then
+printf "${GREEN} \n There is no 'initrd' in 'OLIMEX_KERNEL' folder \n ${NC}"
+printf "${GREEN} \n Looking for 'initrd' directory on 'PC' folder \n ${NC}"
+printf "${BLUE} \n Switching to 'Home' directory \n ${NC}"
+cd ~
+printf "${BLUE} \n Clearing variables \n ${NC}"
+set ""
+set $(find -name 'initrd')
+if [ "$1" = "" ]
+then
+printf "${RED} \n There is no 'initrd' on this PC \n ${NC}"
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Downloading 'initrd' \n ${NC}"
+git clone https://github.com/radxa/initrd.git
+printf "${BLUE} \n Switching to 'initrd' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL/initrd
+printf "${RED} \n Compiling 'initrd' \n ${NC}"
+export PATH="/usr/local/gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf/bin/:$PATH"
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j4
+else
+printf "${GREEN} \n 'initrd' is found \n ${NC}"
+printf "${BLUE} \n Setting new line as input field separator \n ${NC}"
+IFS=$'\n'
+#show all variables
+printf "${GREEN} \n You have the next origins: \n ${NC}"
+printf "${RED} \n $* \n ${NC}"
+echo "what origin I should take: [1/2/3/0-to Download/Enter - close script]"
+unset answer
+read answer
+case $answer in
+1 )
+printf "${GREEN} \n Copying 'initrd' into 'OLIMEX_KERNEL' directory \n ${NC}"
+cp -r $1 ~/OLIMEX_KERNEL
+;;
+2 )
+printf "${GREEN} \n Copying 'initrd' into 'OLIMEX_KERNEL' directory \n ${NC}"
+cp -r $2 ~/OLIMEX_KERNEL
+;;
+3 )
+printf "${GREEN} \n Copying 'initrd' into 'OLIMEX_KERNEL' directory \n ${NC}"
+cp -r $3 ~/OLIMEX_KERNEL
+;;
+0 )
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Downloading 'initrd' \n ${NC}"
+git clone https://github.com/radxa/initrd.git
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL/initrd' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL/initrd
+printf "${RED} \n Compiling 'initrd' \n ${NC}"
+export PATH="/usr/local/gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf/bin/:$PATH"
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j4
+;;
+* )
+printf "${RED} \n Closing script \n ${NC}"
+exit 0
+;;
+esac
+printf "${RED} \n Compiling 'initrd' \n ${NC}"
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL/initrd' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL/initrd
+export PATH="/usr/local/gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf/bin/:$PATH"
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j4
+fi
+else
+printf "${GREEN} \n 'rockchip-mkbootimg' is already in 'OLIMEX_KERNEL' folder \n ${NC}"
+fi
+############################################################################
+#CREATING KERNEL
+############################################################################
+printf "${GREEN} \n There are several options for 'kernel'  \n ${NC}"
+printf "${GREEN} \n I can compile it from origin or take some of Olimex's from 'RK3188_debian_3.0.36_SD_release2.img'\n ${NC}"
+printf "${GREEN} \n  \n ${NC}"
+printf "${RED} \n Compile kernel? [C=compile/T=take default one/Enter=leave script] \n ${NC}"
+unset answer
+read answer
+case $answer in
+C* | c* )
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL/RK3188-SOM' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL/RK3188-SOM/
+export PATH="/usr/local/gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf/bin/:$PATH"
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- olimex_rk3188_defconfig
+printf "${RED} \n Do you want to change something in kernel or I should compile 'Default' configuration [C=change/Enter=default]\n ${NC}"
+unset answer
+read answer
+case $answer in
+C* | c* )
+#xterm -e make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- menuconfig
+export PATH="/usr/local/gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf/bin/:$PATH"
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j4 kernel.img
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+mkbootimg --kernel ~/OLIMEX_KERNEL/RK3188-SOM/arch/arm/boot/Image --ramdisk ~/OLIMEX_KERNEL/initrd.img -o boot.img
+;;
+* )
+export PATH="/usr/local/gcc-linaro-4.9-2014.11-x86_64_arm-linux-gnueabihf/bin/:$PATH"
+make ARCH=arm CROSS_COMPILE=arm-linux-gnueabihf- -j4 kernel.img
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+mkbootimg --kernel ~/OLIMEX_KERNEL/RK3188-SOM/arch/arm/boot/Image --ramdisk ~/OLIMEX_KERNEL/initrd.img -o boot.img
+;;
+esac
+;;
+T* | t* )
+printf "${RED} \n Un-mounting image from \mnt \n ${NC}"
+sudo umount /mnt
+sudo mount -o loop,offset=$((49152*512)) RK3188_debian_3.0.36_SD_release2.img /mnt
+set $(ls /mnt/etc/olimex/kernel/)
+printf "${BLUE} \n Setting new line as input field separator \n ${NC}"
+IFS=$'\n'
+#show all variables
+printf "${RED} \n There are the next pre-compiled Olimex's kernels:${NC}"
+printf "${RED}\n$* \n ${NC}"
+printf "${BLUE} \n What kernel should I take: [1/2/3/4/5/6/Enter=exit script] \n ${NC}"
+unset answer
+read answer
+case $answer in
+1 )
+printf "${BLUE} \n Switching to 'mnt/etc/olimex/kernel/' \n ${NC}"
+cd /mnt/etc/olimex/kernel/
+printf "${GREEN} \n Copying  'kernel_hdmi_1080p.img' to 'OLIMEX_KERNEL'\n ${NC}"
+cp -r kernel_hdmi_1080p.img ~/OLIMEX_KERNEL
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Rename  'kernel_hdmi_1080p.img' to 'boot.img'\n ${NC}"
+mv kernel_hdmi_1080p.img boot.img
+;;
+2 )
+printf "${BLUE} \n Switching to 'mnt/etc/olimex/kernel/' \n ${NC}"
+cd /mnt/etc/olimex/kernel/
+printf "${GREEN} \n Copying  'kernel_hdmi_480p.img' to 'OLIMEX_KERNEL'\n ${NC}"
+cp -r kernel_hdmi_480p.img ~/OLIMEX_KERNEL
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Rename  'kernel_hdmi_480p.img' to 'boot.img'\n ${NC}"
+mv kernel_hdmi_480p.img boot.img
+;;
+3 )
+printf "${BLUE} \n Switching to 'mnt/etc/olimex/kernel/' \n ${NC}"
+cd /mnt/etc/olimex/kernel/
+printf "${GREEN} \n Copying  'kernel_hdmi_720p.img' to 'OLIMEX_KERNEL'\n ${NC}"
+cp -r kernel_hdmi_720p.img ~/OLIMEX_KERNEL
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Rename  'kernel_hdmi_720p.img' to 'boot.img'\n ${NC}"
+mv kernel_hdmi_720p.img boot.img
+;;
+4 )
+printf "${BLUE} \n Switching to 'mnt/etc/olimex/kernel/' \n ${NC}"
+cd /mnt/etc/olimex/kernel/
+printf "${GREEN} \n Copying  'kernel_lcd_10.img' to 'OLIMEX_KERNEL'\n ${NC}"
+cp -r kernel_lcd_10.img ~/OLIMEX_KERNEL
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Rename  'kernel_lcd_10.img' to 'boot.img'\n ${NC}"
+mv kernel_lcd_10.img boot.img
+;;
+5 )
+printf "${BLUE} \n Switching to 'mnt/etc/olimex/kernel/' \n ${NC}"
+cd /mnt/etc/olimex/kernel/
+printf "${GREEN} \n Copying  'kernel_lcd_43.img' to 'OLIMEX_KERNEL'\n ${NC}"
+cp -r kernel_lcd_43.img ~/OLIMEX_KERNEL
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Rename  'kernel_lcd_43.img' to 'boot.img'\n ${NC}"
+mv kernel_lcd_43.img boot.img
+;;
+6 )
+printf "${BLUE} \n Switching to 'mnt/etc/olimex/kernel/' \n ${NC}"
+cd /mnt/etc/olimex/kernel/
+printf "${GREEN} \n Copying  'kernel_lcd_7.img' to 'OLIMEX_KERNEL'\n ${NC}"
+cp -r kernel_lcd_7.img ~/OLIMEX_KERNEL
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${GREEN} \n Rename  'kernel_lcd_7.img' to 'boot.img'\n ${NC}"
+mv kernel_lcd_7.img boot.img
+;;
+* )
+printf "${RED} \n Closing script \n ${NC}"
+exit 0
+;;
+esac
+printf "${RED} \n Un-mounting image from \mnt \n ${NC}"
+sudo umount /mnt
+;;
+*)
+printf "${RED} \n Closing script \n ${NC}"
+exit 0
+;;
+esac
+############################################################################
+#CREATING FINAL IMAGE
+############################################################################
+printf "${BLUE} \n Switching to 'OLIMEX_KERNEL' directory \n ${NC}"
+cd ~/OLIMEX_KERNEL
+printf "${RED} \n Creating image \n ${NC}"
+printf "${GREEN} \n Writing 'sdboot_rk3188.img' \n ${NC}"
+dd if=sdboot_rk3188.img of=RK3188_debian_3.0.36_SD_release2.img conv=sync,fsync,notrunc
+printf "${GREEN} \n Writing 'parameter.img' \n ${NC}"
+dd if=parameter.img of=RK3188_debian_3.0.36_SD_release2.img conv=sync,fsync,notrunc seek=$((0x2000))
+printf "${GREEN} \n Writing 'boot.img' \n ${NC}"
+dd if=boot.img of=RK3188_debian_3.0.36_SD_release2.img conv=sync,fsync,notrunc seek=$((0x2000+0x2000))
+printf "${RED} \n Formatting final image: \n ${NC}"
+fdisk RK3188_debian_3.0.36_SD_release2.img &lt;&lt; EOF
+n
+p
+1
+49152<br>
+w
+EOF
+############################################################################
+#CREATING FLASH
+############################################################################
+printf "${RED} \n Create flash? [Y/Enter - skip (capital letters accepted)] \n ${NC}"
+read answer
+case $answer in
+Y* | y* )
+printf "${RED} \n Now I will show you all devices that you have in your system \n ${NC}"
+sudo fdisk -l
+sleep 3
+printf "${GREEN} \n Type here selected device [sda/sdb/sdc/sdd/...] \n ${NC}"
+printf "${RED} \n ATTENTION! If you make a mistake you will probably destroy one of your HDD \n ${NC}"
+printf "${RED} \n if you are not sure press 0 to skip this part of script \n ${NC}"
+read flash_name
+case "$flash_name" in
+0 )
+printf "${RED} \n No flash was created. \n ${NC}"
+;;
+sd* )
+cd ~/OLIMEX_KERNEL
+sudo dd bs=4M oflag=sync if=~/OLIMEX_KERNEL/RK3188_debian_3.0.36_SD_release2.img of=/dev/"$flash_name" conv=sync,fsync
+cd ~
+;;
+* )
+printf "${RED} \n Error input. \n ${NC}"
+printf "${GREEN} \n SD image RK3188_debian_3.0.36_SD_release2.img you will find in your folder ~/OLIMEX_KERNEL. ${NC}"
+printf "${BLUE} \n You could flash it later manually by command:${NC}"
+printf "${BLUE} \n sudo dd bs=4M oflag=sync if=~/OLIMEX_KERNEL/RK3188_debian_3.0.36_SD_release2.img of=/dev/&lt;$flash_name&gt; conv=sync,fsync ${NC}"
+;;
+esac
+;;
+* )
+printf "${GREEN} \n SD image RK3188_debian_3.0.36_SD_release2.img you will find in your folder ~/OLIMEX_KERNEL. ${NC}"
+printf "${BLUE} \n You could flash it later manually by command:${NC}"
+printf "${BLUE} \n sudo dd bs=4M oflag=sync if=~/OLIMEX_KERNEL/RK3188_debian_3.0.36_SD_release2.img of=/dev/<flash_name> conv=sync,fsync \n ${NC}"
+;;
+esac
+</flash_name></code></pre>
+		</div>
+	</div>
+
+
+
+
+	</div>
+
+
+	<div style="text-align:left">
+		<footer>
+<form action="/Home/Contact" enctype="multipart/form-data" method="post"><input name="__RequestVerificationToken" value="gfiVHAdACniD7-_0WPgP0Dm_--4BYzPXDwPXbG7Ynz0hOmXSHhTpxxKwNMkYma2EeaPEDtbp-MaWorsqzKhWDQ5zjabbY7UnZNaedbhge6I1" type="hidden">				<div class="container">
+					<hr>
+					<div class="row" style="text-align:center">
+						<p><b>You can send me your comments:</b></p>
+					</div>
+
+					<div class="row">
+						<div class="form-group">
+							<div class="col-md-6">
+								<label class="col-md-12 control-label" for="Name">Introduce yourself please:</label>
+								<input class="form-control" data-val="true" data-val-required="The Introduce yourself please: field is required." id="Name" name="Name" type="text">
+								<span class="field-validation-valid" data-valmsg-for="Name" data-valmsg-replace="true"></span>
+								<br>
+							</div>
+						</div>
+					</div>
+
+					<div class="row">
+						<div class="form-group">
+							<div class="col-md-6">
+								<label class="col-md-12 control-label" for="Email">Your e-mail address:</label>
+								<input class="form-control" data-val="true" data-val-email="The Your e-mail address: field is not a valid e-mail address." data-val-required="The Your e-mail address: field is required." id="Email" name="Email" type="text">
+								<span class="field-validation-valid" data-valmsg-for="Email" data-valmsg-replace="true"></span>
+								<br>
+							</div>
+						</div>
+					</div>
+
+					<div class="row">
+						<div class="form-group">
+							<div class="col-md-12">
+								<label class="col-md-6 control-label" for="Message">Your message:</label>
+								<textarea class="form-control" cols="20" data-val="true" data-val-required="The Your message: field is required." id="Message" name="Message" rows="5"></textarea>
+								<span class="field-validation-valid" data-valmsg-for="Message" data-valmsg-replace="true"></span>
+							</div>
+						</div>
+					</div>
+
+					<div class="row">
+						<div class="col-md-12">
+							<b><input class="btn btn-default" value="Send" type="submit"></b><br>
+						</div>
+					</div>
+
+				</div>
+</form>
+			<div style="text-align:center; font-size:larger">
+				<b>2017 - microElk</b>
+			</div>
+			<br>
+
+		</footer>
+	</div>
+
+
+
+
+</body></html>
