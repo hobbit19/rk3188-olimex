@@ -1,0 +1,15 @@
+#
+# Copy to ${ROOTFS}/etc/apt/sources.list
+# sed -e 's/%DISTRO%/trusty/g' ubuntu-apt-sources.list > ${ROOTFS}/etc/apt/sources.list
+#
+
+###### Ubuntu Main Repos
+deb http://ports.ubuntu.com/ubuntu-ports/ %DISTRO% main restricted universe multiverse 
+deb-src http://ports.ubuntu.com/ubuntu-ports/ %DISTRO% main restricted universe multiverse 
+
+###### Ubuntu Update Repos
+deb http://ports.ubuntu.com/ubuntu-ports/ %DISTRO%-security main restricted universe multiverse 
+deb http://ports.ubuntu.com/ubuntu-ports/ %DISTRO%-updates main restricted universe multiverse 
+deb-src http://ports.ubuntu.com/ubuntu-ports/ %DISTRO%-security main restricted universe multiverse 
+deb-src http://ports.ubuntu.com/ubuntu-ports/ %DISTRO%-updates main restricted universe multiverse 
+

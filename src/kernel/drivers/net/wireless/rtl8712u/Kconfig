@@ -1,0 +1,11 @@
+config RTL8712U
+	tristate "Realtek 8712 USB WiFi"
+	depends on USB
+	select WIRELESS_EXT
+    select WEXT_PRIV
+    select IEEE80211
+    select BT_RTKBTUSB
+    select UHID
+	---help---
+	  Help message of RTL8712U
+

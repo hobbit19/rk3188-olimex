@@ -1,0 +1,1 @@
+KERNEL=="usb", ATTR{idVendor}=="1e7d", MODE="0666", GROUP="dialout" SYMLINK+="%k"

@@ -1,0 +1,7 @@
+config OLIMEX_IRDA
+	tristate "OLIMEX IRDA+ UEXT Module"
+	depends on RC_CORE
+	depends on I2C2_RK29 || I2C2_RK30
+	select IR_RC5_DECODER
+	---help---
+	  Enable the OLIMEX UEXT IRDA+ module.
