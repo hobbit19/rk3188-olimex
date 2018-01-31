@@ -92,11 +92,11 @@ NAND_KERNEL_CMDL += initrd=$(NAND_INITRD_ADDR)
 NAND_KERNEL_CMDL += mtdparts=rk29xxnand:$(NAND_DISK_PARTS)
 
 # this tools located /usr/local/bin 
-AFPTOOL := afptool
-MKNANDIMG := img_maker
-MKBOOTIMG := mkbootimg
-RKFLASHTOOL := rkflashtool
-UPGRADETOOL := upgrade_tool
+AFPTOOL := $(BASE)/bin/afptool
+MKNANDIMG := $(BASE)/bin/img_maker
+MKBOOTIMG := $(BASE)/bin/mkbootimg
+RKFLASHTOOL := $(BASE)/bin/rkflashtool
+UPGRADETOOL := $(BASE)/bin/Linux_Upgrade_Tool_v1.2/linux/upgrade_tool
 
 # RootFS default configs and real firmware rootfs
 ROOTFS_IMAGE_DIR := $(BASE)/images/rootfs/
@@ -271,26 +271,16 @@ $(_kernel_output): $(SRC_DIR_KERNEL)/.config
 # Boot image file (initrd)
 # ----------------------------------------------------------------
 
-olimex_initrd := $(BASE)/../unpacked/files/boot/initrd.img
+olimex_initrd := $(BASE)/images/initrd/initrd.img
 $(OUT_DIR_NAND)/boot.img: $(olimex_initrd) $(_kernel_output)
 	@echo "++ BOOTIMG: Create boot image file $@"
 	@echo "++ BOOTIMG: Kernel file $(_kernel_output)"
 	@echo "++ BOOTIMG: RAM Disk file $(olimex_initrd)"
 	@$(MKBOOTIMG) --kernel $(_kernel_output) --ramdisk $(olimex_initrd) -o $@
 
-#$(OUT_DIR_NAND)/boot.img: $(SRC_DIR_INITRD)/init $(_kernel_output) 
-#	@echo "++ Creae boot image file: $@"
-#	@cd $(SRC_DIR_INITRD) && $(MAKE) TEMP_DIR=$(OUT_DIR_ROOTFS)
-#	@$(MKBOOTIMG) --kernel $(_kernel_output) --ramdisk $(OUT_DIR_ROOTFS)/initrd.img -o $@
-
 # ----------------------------------------------------------------
 # Root file system
 # ----------------------------------------------------------------
-
-#olimex_rootfs := $(BASE)/../unpacked/files/rootfs.img
-#$(OUT_DIR_NAND)/rootfs.img: $(olimex_rootfs) $(_kernel_output)
-#	@echo "++ Create root fs image file: $@"
-#	@cp -vup $(olimex_rootfs) $@	
 
 $(OUT_DIR_NAND)/rootfs.img: $(ROOTFS_SRC_FILES) $(_kernel_output)
 	@echo "++ ROOTFS.: Create root fs image file $@"

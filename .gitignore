@@ -67,6 +67,7 @@ modules.builtin
 !.gitignore
 !.mailmap
 !.project
+!*.bin
 
 #
 # Generated include files
