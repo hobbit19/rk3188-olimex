@@ -92,10 +92,10 @@ NAND_KERNEL_CMDL += initrd=$(NAND_INITRD_ADDR)
 NAND_KERNEL_CMDL += mtdparts=rk29xxnand:$(NAND_DISK_PARTS)
 
 # this tools located /usr/local/bin 
-AFPTOOL := $(BASE)/bin/afptool
-MKNANDIMG := $(BASE)/bin/img_maker
-MKBOOTIMG := $(BASE)/bin/mkbootimg
-RKFLASHTOOL := $(BASE)/bin/rkflashtool
+AFPTOOL := $(BASE)/bin/tools/afptool
+MKNANDIMG := $(BASE)/bin/tools/img_maker
+MKBOOTIMG := $(BASE)/bin/tools/mkbootimg
+RKFLASHTOOL := $(BASE)/bin/tools/rkflashtool
 UPGRADETOOL := $(BASE)/bin/Linux_Upgrade_Tool_v1.2/linux/upgrade_tool
 
 # RootFS default configs and real firmware rootfs
